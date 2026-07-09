@@ -103,7 +103,7 @@ read_when:
 | **Step 1** | 综合搜索 | 3 次并行 | 全国政策 + 江苏南京本地 + 中奖/渠道 |
 | **Step 2** | 开奖数据采集 | 体彩4次并行 + 福彩1次串行（延后执行，见 search-strategy.md 反爬策略） | 体彩4专区页(大乐透/7星彩/排列3-5/7位数) → 等待5-10秒 → 福彩开奖公告页（cwl.gov.cn串行） |
 | **Step 2.5** | ⭐ 省级官网全覆盖抓取 | 44次分6批并行 + 1次API + 9次Playwright串行 | 每天全覆盖30省+深圳（体彩+福彩），当天发布当天抓到（含青海福彩新闻中心聚合页 web_fetch 直抓） |
-| **Step 3** | 微信公众号搜索 | 4 必搜 | 南京(必搜) + 江苏(必搜)，补充信源 |
+| **Step 3** | 微信公众号搜索 | 已废止（默认跳过） | 搜狗4条必搜（南京/江苏）索引滞后至2020-2023，已废止；江苏本地由 Step 0 官网 + Step 3.4 覆盖 |
 | **Step 3.4** | 搜索引擎补充 | 1 次 | 公众号时效性不足时，用搜索引擎补充活动/渠道 |
 | **Step 3.5** | 微信全文抓取 | 按需 | 对7天内的公众号文章 web_fetch 全文 |
 | **Step 4** | 深度抓取 | 按需 | web_fetch 获取详情页/公众号文章全文 |
@@ -256,14 +256,18 @@ read_when:
 - 简报文件自动保存至 `{workspace}/今日彩票新闻简报_YYYYMMDD.md`
 
 ### 2. IMA 知识库（使用稳定分发脚本，推荐）
-- **使用 `scripts/ima_distribute.js`**（v2.1.8 新增、v2.1.10 加固：钉死凭证来源 + `content_format=1` + `ctx=skill_version=1.1.7`（与官方 ima_api.cjs 字节一致）+ 重试3次/失败长冷却60s + 绕过版本检查）：
+- **使用 `scripts/ima_distribute.js`**（两步法稳定分发，2026-07-08 终极修复）：
+  - **两步法**：① `import_doc` 纯建笔记（仅传 `{title, content, content_format:1}`，**不传** knowledge_base_id / folder_id）；② `add_knowledge` 把笔记关联进知识库（`{knowledge_base_id, media_type:11, note_info:{content_id:note_id}}`）。
+  - **凭证**：只从 `~/.workbuddy/.secrets/ima.env` 读取（`IMA_OPENAPI_CLIENTID`/`IMA_OPENAPI_APIKEY`），**忽略 process.env**（环境可能注入错误 clientId 触发 200002）；`content_format=1`；直连 `ima.qq.com` 绕过 `ima_api.cjs` 每日版本检查。
+  - **知识库 ID**：OpenAPI 视角的 `5SYGbnFrd8VLhQColV0YxNKWh3u4FCeSwbSjVjKC3Vs=`（"微信公众号知识库"），**非** MCP 通道的 `7477994624936006`（传它会 220004）。
+  - **幂等防重发**：状态锁 `.distributed_YYYYMMDD.json`，今日已完整分发则 skip，绝不二次 import；失败重试 3 次（间隔 5s），严格成功判定 HTTP200+code0+note_id。
   ```bash
   cd scripts && node ima_distribute.js "../今日彩票新闻简报_YYYYMMDD.md"
   ```
   - 脚本自动从 `~/.workbuddy/.secrets/ima.env` 读取 `IMA_OPENAPI_CLIENTID` / `IMA_OPENAPI_APIKEY`（凭证安全铁律，集中存放，禁止散落）。
   - 成功返回 `{"ok":true,"note_id":"...","title":"...","attempt":N}`，失败（3次长冷却重试后仍失败）以非0退出。
 - ⚠️ **禁止直接使用 `ima_api.cjs`**：该脚本内置"每日更新检查"，发现新版本会抛 `-200` 并**拦截原请求**（2026-07-07 分发失败根因）；`ima_distribute.js` 直连 `ima.qq.com` 绕过此检查，版本稳定。
-- ⚠️ **200002 是 IMA 限流，不是凭证失效**：2026-07-07 根因澄清——`ima_api.cjs` 的 `ima-openapi-ctx` 头是 `skill_version=1.1.7`（纯键值串），`ima_distribute.js` 与之**字节一致**；真正致错的是**短时间连续请求触发 IMA 服务端限流**（连发 5 次重试反而全 200002，单次请求反而成功）。脚本已改为"失败→长冷却 60s→再试，最多 3 次"，禁止连续轰炸。**切勿一见 200002 就去重配 IMA 密钥**——先重跑脚本（长冷却后会自愈），仍持续失败再排查凭证。
+- ⚠️ **200002 真实含义（本案例）**：= **凭证错（process.env 注入的错误 clientId）/ 参数错（import_doc 硬塞 kb_id 或 folder_id）** 触发的综合拒绝码（msg="skill auth failed"），**非限流、非平台授权不足**。正确做法：用 `ima.env` 文件凭证 + 两步法（import_doc 不传目标 ID）。脚本 `loadCredentials` 已忽略 process.env，正常不会触发。**切勿一见 200002 就去重配 IMA 密钥**——先查 `ima.env` 凭证与脚本是否误传目标 ID（详见 MEMORY.md「IMA 分发约束」）。
 - 笔记标题由简报正文首个 H1 派生（即 `今日彩票新闻简报_YYYYMMDD`），无需额外指定。
 - 适合长期归档和跨设备查阅。
 
@@ -300,7 +304,7 @@ read_when:
 | **全国官网（全覆盖）** | 30省+深圳≈58个 | 每天全覆盖30省+深圳 → ⭐ 各地活动/渠道主力信源，当天发布当天抓到 |
 | **全国性官网** | 4 个 | 中体彩(2) + 中福彩(2) → 政策/行业新闻补充 |
 | **开奖数据** | 1 福彩 + 4 体彩专区 | 福彩4彩种(cwl.gov.cn) + 体彩5彩种(js-lottery.com 4个专区页) |
-| **微信公众号（P1）** | 4 必搜 | 南京体彩/福彩 + 江苏体彩/福彩 → 本地补充 |
+| **微信公众号（已废止）** | 4 必搜（2026-07-08 废止） | 搜狗4条（南京/江苏）索引滞后至2020-2023，已废止默认跳过；江苏本地由 Step 0 官网 + Step 3.4 覆盖 |
 | **搜索引擎** | 1 次/天 | 通用搜索补充 → 填补官网盲区 |
 | **补充来源** | 17 个 | 主流媒体转载(5)、开奖数据补充(10)、南京市民政局/江苏福彩官网(2) |
 
@@ -327,4 +331,6 @@ read_when:
 ---
 
 *最后更新：2026-07-06（v2.1.1：固化 Step 2.5 抓取排错经验；修正 IMA 分发描述（ima-note→ima-skills v1.1.7 import_doc，明确需 source ~/.workbuddy/.secrets/ima.env）；v2.1.2：山东体彩URL修正为 http-only 静态站并入 Playwright 批；v2.1.3：浙江体彩改用体彩统一 API 抓取，新增 fetch_tycai_api.js 与 API 批，Step 2.5 计数更新为 47 web_fetch + 1 API + 6 Playwright；v2.1.4：广西/贵州/青海体彩URL修正并配入Playwright批（广西 http-only静态30条、贵州Vue SPA需domcontentloaded 9000共16条、青海老ASP表格站36条），fetch_news.js 增强（waitUntil参数化/链接正则扩至/view\d+/.shtml/.asp/表格行兄弟td日期/标题清洗/img src日期/相对URL补全），Playwright批 6→9个，Step 2.5 计数更新为 47 web_fetch + 1 API + 9 Playwright）；v2.1.6（2026-07-06）青海福彩修复：用户确认新闻中心聚合页 TypeId=0，web_fetch实测可抓取，从fetch failed待核实移入Step 2.5第5批web_fetch（西北），web_fetch 43→44、Step 2.5 53→54、基础请求量约77-87→约78-88次/天；福彩web_fetch直抓21→22、fetch failed 1→0）；v2.1.7（2026-07-06）运行风险加固：新增"批次进度硬核对"（每批输出计数+收尾校验，防静默失败）、web_fetch"快速失败"（单条仅重试1次立即跳过）、Playwright 单站 90s 硬超时兜底（fetch_news.js）；v2.1.8（2026-07-07）根因修复：新增"Step 2.5 强制纪律"（每批前复读最新URL禁止凭记忆 + 收尾校验升级为硬拦截门禁，8批未全完禁止生成简报）；新增 scripts/ima_distribute.js 稳定分发脚本（绕过ima_api.cjs版本检查、钉死content_format=1、失败重试3次）；fetch_news.js 增加 gotoTimeout 参数修复河南福彩http连接超时；v2.1.9（2026-07-07）IMA 200002 根因澄清与加固：隔离测试证明 200002 为 IMA 服务端瞬时鉴权抖动（同请求稍后重试即成功），非脚本/凭证问题；ima_distribute.js 重试从3次/固定5s升级为5次指数退避（5s/10s/20s/40s/40s）并加 200002 瞬时提示，禁止误判凭证失效去重配密钥）；v2.1.10（2026-07-07）IMA 200002 根因二次澄清：修正 v2.1.9 误判——200002 实为 IMA 对短时连续请求的限流（非纯随机抖动），ima_distribute.js 的 ctx 头 `skill_version=1.1.7` 与官方 ima_api.cjs 字节一致早已正确；重试策略由 5 次快速退避改为 3 次 + 失败长冷却 60s，禁止连续轰炸触发限流）*
+
+*⚠️ 更正（2026-07-08）：v2.1.9/v2.1.10 关于「200002=IMA 限流」的根因判断已被推翻。最终 ROOT CAUSE：① import_doc 误塞 knowledge_base_id/folder_id ② add_knowledge 误用 MCP 通道 KB ID(7477994624936006) ③ loadCredentials 误用 process.env 注入的错误 clientId(eb46077c)。三项修复后两步法单次成功(~1.4s)。详见 MEMORY.md「IMA 分发约束」段与 memory/20260708.md。*
 
