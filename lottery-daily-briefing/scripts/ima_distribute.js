@@ -9,9 +9,9 @@
  * 关键教训（2026-07-08 深挖到底）：
  *   1. import_doc 是「笔记创建」接口，硬塞 knowledge_base_id / folder_id 会导致 IMA 校验变数大、
  *      不稳定返回 200002（msg=skill auth failed，有严重误导性，实际是参数/目标错误）。
- *   2. 知识库 ID 必须来自 OpenAPI 凭证视角（get_addable_knowledge_base_list，name="微信公众号知识库"），
- *      不能用 MCP 通道看到的 ID（MCP 的 7477994624936006 ≠ OpenAPI 的 5SYGbnFrd8VLhQColV0YxNKWh3u4FCeSwbSjVjKC3Vs=，
- *      传错 ID 会 220004 invalid knowledge_base_id）。
+ *   2. 知识库 ID 必须来自 OpenAPI 凭证视角（get_addable_knowledge_base_list，name="彩票新闻简报知识库"），
+ *      不能用 MCP 通道看到的 ID（传错 ID 会 220004 invalid knowledge_base_id）。
+ *      ⚠️ 2026-07-09 起目标库由「微信公众号知识库」切换为「彩票新闻简报知识库」（仅改 DEFAULT_KB_ID，流程不变）。
  *   3. 凭证钉死 ~/.workbuddy/.secrets/ima.env（凭证安全铁律）；绕过 ima-skill 的每日版本检查实现稳定。
  *
  * 用法: node ima_distribute.js <markdown_file_path> [title] [kb_id]
@@ -27,9 +27,9 @@ const ADD_PATH = 'openapi/wiki/v1/add_knowledge';
 // 注：两步法无需 ctx 头；凭证严格只读 ima.env 文件（见 loadCredentials），不使用 process.env。
 const SECRETS_ENV = path.join(os.homedir(), '.workbuddy/.secrets/ima.env');
 const MAX_RETRY = 3;
-// 「微信公众号知识库」的 OpenAPI 正确 ID（来自 get_addable_knowledge_base_list，name="微信公众号知识库"）
-// ⚠️ 不是 MCP 通道的 7477994624936006（那是另一套身份体系下的 ID，传它会 220004 invalid）
-const DEFAULT_KB_ID = '5SYGbnFrd8VLhQColV0YxNKWh3u4FCeSwbSjVjKC3Vs=';
+// 「彩票新闻简报知识库」的 OpenAPI 正确 ID（来自 get_addable_knowledge_base_list，name="彩票新闻简报知识库"）
+// ⚠️ 不是 MCP 通道看到的 ID（那是另一套身份体系下的 ID，传它会 220004 invalid）
+const DEFAULT_KB_ID = 'Vt3DVn6DvWGQLvalgCWBAeJlP_P4HkmvF5MhsQJWhL4=';
 const STATE_DIR = __dirname;
 
 // 幂等：按日期记录已分发状态，防止同一天重复产生多份简报
