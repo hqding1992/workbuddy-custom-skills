@@ -50,6 +50,7 @@ read_when:
 | `provincial-sites.md` | 省级官网URL库 | 全国30省体彩/福彩官网地址，按大区分组（每天全覆盖） |
 | `format-template.md` | 简报格式模板 | 定义简报的标准输出格式 |
 | `active-events.md` | 活动追踪表 | 记录当前进行中的活动和渠道案例 |
+| `scripts/` | 运行脚本（依赖） | IMA 分发(`ima_distribute.js`)+ 省级官网抓取(`fetch_news.js`)+ 浙江体彩API(`fetch_tycai_api.js`)+ `package.json`；凭证从本地 `~/.workbuddy/.secrets/ima.env` 读取，**不入库** |
 
 ### 🎯 简报五大信息分类
 
