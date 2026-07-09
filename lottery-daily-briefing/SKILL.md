@@ -313,7 +313,7 @@ read_when:
 
 ---
 
-*版本：v2.1.7*
+*版本：v2.1.10*
 ## 🔧 抓取排错经验（Step 2.5）
 
 ### SPA 站点抓取失败：先查 URL 是否路由到正确栏目，而非直接改选择器
@@ -334,4 +334,14 @@ read_when:
 *最后更新：2026-07-06（v2.1.1：固化 Step 2.5 抓取排错经验；修正 IMA 分发描述（ima-note→ima-skills v1.1.7 import_doc，明确需 source ~/.workbuddy/.secrets/ima.env）；v2.1.2：山东体彩URL修正为 http-only 静态站并入 Playwright 批；v2.1.3：浙江体彩改用体彩统一 API 抓取，新增 fetch_tycai_api.js 与 API 批，Step 2.5 计数更新为 47 web_fetch + 1 API + 6 Playwright；v2.1.4：广西/贵州/青海体彩URL修正并配入Playwright批（广西 http-only静态30条、贵州Vue SPA需domcontentloaded 9000共16条、青海老ASP表格站36条），fetch_news.js 增强（waitUntil参数化/链接正则扩至/view\d+/.shtml/.asp/表格行兄弟td日期/标题清洗/img src日期/相对URL补全），Playwright批 6→9个，Step 2.5 计数更新为 47 web_fetch + 1 API + 9 Playwright）；v2.1.6（2026-07-06）青海福彩修复：用户确认新闻中心聚合页 TypeId=0，web_fetch实测可抓取，从fetch failed待核实移入Step 2.5第5批web_fetch（西北），web_fetch 43→44、Step 2.5 53→54、基础请求量约77-87→约78-88次/天；福彩web_fetch直抓21→22、fetch failed 1→0）；v2.1.7（2026-07-06）运行风险加固：新增"批次进度硬核对"（每批输出计数+收尾校验，防静默失败）、web_fetch"快速失败"（单条仅重试1次立即跳过）、Playwright 单站 90s 硬超时兜底（fetch_news.js）；v2.1.8（2026-07-07）根因修复：新增"Step 2.5 强制纪律"（每批前复读最新URL禁止凭记忆 + 收尾校验升级为硬拦截门禁，8批未全完禁止生成简报）；新增 scripts/ima_distribute.js 稳定分发脚本（绕过ima_api.cjs版本检查、钉死content_format=1、失败重试3次）；fetch_news.js 增加 gotoTimeout 参数修复河南福彩http连接超时；v2.1.9（2026-07-07）IMA 200002 根因澄清与加固：隔离测试证明 200002 为 IMA 服务端瞬时鉴权抖动（同请求稍后重试即成功），非脚本/凭证问题；ima_distribute.js 重试从3次/固定5s升级为5次指数退避（5s/10s/20s/40s/40s）并加 200002 瞬时提示，禁止误判凭证失效去重配密钥）；v2.1.10（2026-07-07）IMA 200002 根因二次澄清：修正 v2.1.9 误判——200002 实为 IMA 对短时连续请求的限流（非纯随机抖动），ima_distribute.js 的 ctx 头 `skill_version=1.1.7` 与官方 ima_api.cjs 字节一致早已正确；重试策略由 5 次快速退避改为 3 次 + 失败长冷却 60s，禁止连续轰炸触发限流）*
 
 *⚠️ 更正（2026-07-08）：v2.1.9/v2.1.10 关于「200002=IMA 限流」的根因判断已被推翻。最终 ROOT CAUSE：① import_doc 误塞 knowledge_base_id/folder_id ② add_knowledge 误用 MCP 通道 KB ID(7477994624936006) ③ loadCredentials 误用 process.env 注入的错误 clientId(eb46077c)。三项修复后两步法单次成功(~1.4s)。详见 MEMORY.md「IMA 分发约束」段与 memory/20260708.md。*
+
+---
+
+## 📌 版本发布记录（GitHub Release）
+
+| 版本 | 发布日期 | 核心变更 |
+|------|---------|----------|
+| **v2.1.10** | 2026-07-09 | ① IMA 分发终极修复：两步法（import_doc 纯建笔记 + add_knowledge 关联知识库），凭证只取 `~/.workbuddy/.secrets/ima.env` 文件、忽略 process.env，加幂等状态锁防重发；② 搜狗 4 条公众号必搜废止（索引滞后 2020-2023）；③ 新增 `scripts/` 运行脚本并上线 GitHub（ima_distribute.js / fetch_news.js / fetch_tycai_api.js）；④ 修正文档版本死文本（v2.1.7→v2.1.10）。 |
+
+> ⚠️ 历史更正：v2.1.9/v2.1.10 曾将 200002 判为 IMA 限流，已于 2026-07-08 推翻——真实根因为 ① import_doc 误塞目标 ID ② add_knowledge 误用 MCP 通道 KB ID ③ loadCredentials 误用 process.env 注入的错误 clientId。三项修复后单次成功（~1.4s）。
 
