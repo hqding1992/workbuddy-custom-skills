@@ -183,6 +183,9 @@ lottery-daily-briefing/
 | v2.1.10 | 2026-07-09 | IMA 分发终极修复：两步法（import_doc 纯建 + add_knowledge 关联）+ ima.env 凭证 + 幂等锁；搜狗4条公众号必搜废止；scripts/ 上线 GitHub；修正版本死文本 v2.1.7→v2.1.10 |
 | v2.1.11 | 2026-07-09 | 固化「Step 4 文章详情深抓不可跳过」防复发铁律（省级官网列表页仅返回标题+日期+URL，活动/渠道结构化字段只在详情页，跳过此步会把两节压成"只有标题"——07-09 初版教训）；Phase 2 Step 4 与关键约束第6条双重标注强制下钻；将工作区执行纪律第4条同步至 skill 本体，确保跨工作区防复发 |
 | v2.1.12 | 2026-07-09 | IMA 分发目标知识库由「微信公众号知识库」切换为「彩票新闻简报知识库」（ima_distribute.js 的 DEFAULT_KB_ID 改 Vt3DVn6DvWGQLvalgCWBAeJlP_P4HkmvF5MhsQJWhL4=）；修正 SKILL.md 正文知识库 ID 文档旧值（原误写微信公众号库 ID）；完善更新记录（README 版本表 + GitHub Release v2.1.12） |
+| v2.1.13 | 2026-07-14 | Step 4 升硬门禁（活动详版≥8/渠道详版≥4）+ 详情URL必须落盘 `_urls_YYYYMMDD.txt` + 新增 scripts/fetch_details.js（Playwright详情抓取器） + 深抓 429 指数退避 + 续跑先检测落盘跳过重抓 |
+| v2.1.14 | 2026-07-21 | 本省/南京强制深抓规则（江苏条目不论栏目均强制入深抓队列，三栏目并集兜底）；南京空窗须先核查确为"真无发布" |
+| **v2.1.15** | **2026-07-23** | **A改造：调度13:00 + B改造：增量落盘纪律**（每批即时 append `_collect_*.jsonl` + `_state_*.json` 批次进度追踪），根治会话截断导致续跑全量重抓根因 |
 
 ---
 
