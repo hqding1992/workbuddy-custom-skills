@@ -1,6 +1,6 @@
 ---
 name: lottery-daily-briefing
-version: 2.1.14
+version: 2.1.15
 description: 彩票行业新闻自动采编与标准化简报生成工具。每日从全国省级官网全覆盖+官方渠道抓取信息，微信公众号为补充信源，按五大类（政策动态/各地活动/渠道拓展/最新开奖/重大中奖）分类整理，支持定时生成与多渠道分发（IMA知识库、邮箱、企微等）。
 read_when:
   - 用户触发"彩票简报"、"彩票新闻"、"每日简报"、"生成简报"等关键词
@@ -294,6 +294,7 @@ read_when:
 4. **标注完整**：每条信息必须有来源、时间、链接
 5. **防污染**：绝不可将模板中的示例数据填入实际简报
 6. **⭐ Step 4 文章详情深抓=硬门禁（2026-07-09 首立·2026-07-14 强化）**：生成活动/渠道两节前**必须**下钻详情页取结构化字段，禁止停留在列表层用标题+日期汇总。07-14 复发根因=采集阶段未把详情 URL 落盘→Step 4 无米下锅→两节又变"只有标题"。**强制**：① Step 2.5/Playwright 必须落盘详情 URL（`_urls_YYYYMMDD.txt`）；② 简报生成前校验深抓篇数（活动详版≥8、渠道详版≥4），不足即报错不生成；③ 续跑先检测落盘文件，已有则跳过重抓（避免盲目重抓拖慢）；④ 深抓 429 指数退避（1/2/4/8s），不固定长 sleep。
+7. **⭐ 增量落盘纪律与续跑抗中断（v2.1.15 新增）**：自动化执行时，每批采集结果**必须即时 append** 到 `_collect_YYYYMMDD.jsonl`（JSONL格式），同时用 `_state_YYYYMMDD.json` 记录各批次完成状态。此机制解决「会话上下文被截断导致续跑无法感知进度」的根因问题（07-23 根因复盘）。**强制**：① 每批（b1-b6/API/PW）命中结果必须即时写入 collect 文件，不得延迟到全采集完成后一次性写；② 每次写完随即更新 state 文件对应批次状态为 `done`；③ 续跑时先读 state 文件，仅处理 `pending` 批次，跳过已完成批次；④ state 文件含 `collect_count`（累计条数）与 `failed`（失败站点列表），便于快速评估整体进度。
 
 ---
 
@@ -314,7 +315,7 @@ read_when:
 
 ---
 
-*版本：v2.1.14*
+*版本：v2.1.15*
 ## 🔧 抓取排错经验（Step 2.5）
 
 ### SPA 站点抓取失败：先查 URL 是否路由到正确栏目，而非直接改选择器
@@ -332,7 +333,7 @@ read_when:
 
 ---
 
-*最后更新：2026-07-06（v2.1.1：固化 Step 2.5 抓取排错经验；修正 IMA 分发描述（ima-note→ima-skills v1.1.7 import_doc，明确需 source ~/.workbuddy/.secrets/ima.env）；v2.1.2：山东体彩URL修正为 http-only 静态站并入 Playwright 批；v2.1.3：浙江体彩改用体彩统一 API 抓取，新增 fetch_tycai_api.js 与 API 批，Step 2.5 计数更新为 47 web_fetch + 1 API + 6 Playwright；v2.1.4：广西/贵州/青海体彩URL修正并配入Playwright批（广西 http-only静态30条、贵州Vue SPA需domcontentloaded 9000共16条、青海老ASP表格站36条），fetch_news.js 增强（waitUntil参数化/链接正则扩至/view\d+/.shtml/.asp/表格行兄弟td日期/标题清洗/img src日期/相对URL补全），Playwright批 6→9个，Step 2.5 计数更新为 47 web_fetch + 1 API + 9 Playwright）；v2.1.6（2026-07-06）青海福彩修复：用户确认新闻中心聚合页 TypeId=0，web_fetch实测可抓取，从fetch failed待核实移入Step 2.5第5批web_fetch（西北），web_fetch 43→44、Step 2.5 53→54、基础请求量约77-87→约78-88次/天；福彩web_fetch直抓21→22、fetch failed 1→0）；v2.1.7（2026-07-06）运行风险加固：新增"批次进度硬核对"（每批输出计数+收尾校验，防静默失败）、web_fetch"快速失败"（单条仅重试1次立即跳过）、Playwright 单站 90s 硬超时兜底（fetch_news.js）；v2.1.8（2026-07-07）根因修复：新增"Step 2.5 强制纪律"（每批前复读最新URL禁止凭记忆 + 收尾校验升级为硬拦截门禁，8批未全完禁止生成简报）；新增 scripts/ima_distribute.js 稳定分发脚本（绕过ima_api.cjs版本检查、钉死content_format=1、失败重试3次）；fetch_news.js 增加 gotoTimeout 参数修复河南福彩http连接超时；v2.1.9（2026-07-07）IMA 200002 根因澄清与加固：隔离测试证明 200002 为 IMA 服务端瞬时鉴权抖动（同请求稍后重试即成功），非脚本/凭证问题；ima_distribute.js 重试从3次/固定5s升级为5次指数退避（5s/10s/20s/40s/40s）并加 200002 瞬时提示，禁止误判凭证失效去重配密钥）；v2.1.10（2026-07-07）IMA 200002 根因二次澄清：修正 v2.1.9 误判——200002 实为 IMA 对短时连续请求的限流（非纯随机抖动），ima_distribute.js 的 ctx 头 `skill_version=1.1.7` 与官方 ima_api.cjs 字节一致早已正确；重试策略由 5 次快速退避改为 3 次 + 失败长冷却 60s，禁止连续轰炸触发限流）*
+*最后更新：2026-07-23（v2.1.15：A改造调度13:00 + B改造增量落盘纪律 + 关键约束第7条抗中断机制。详见版本发布记录表）*
 
 *⚠️ 更正（2026-07-08）：v2.1.9/v2.1.10 关于「200002=IMA 限流」的根因判断已被推翻。最终 ROOT CAUSE：① import_doc 误塞 knowledge_base_id/folder_id ② add_knowledge 误用 MCP 通道 KB ID(7477994624936006) ③ loadCredentials 误用 process.env 注入的错误 clientId(eb46077c)。三项修复后两步法单次成功(~1.4s)。详见 MEMORY.md「IMA 分发约束」段与 memory/20260708.md。*
 
@@ -347,6 +348,7 @@ read_when:
 | **v2.1.12** | 2026-07-09 | ① IMA 分发目标知识库由「微信公众号知识库」切换为「彩票新闻简报知识库」（`scripts/ima_distribute.js` 的 `DEFAULT_KB_ID` 改为 `Vt3DVn6DvWGQLvalgCWBAeJlP_P4HkmvF5MhsQJWhL4=`）；② 修正 SKILL.md 正文知识库 ID 文档旧值（原误写微信公众号库 ID，与脚本实际目标不一致）；③ 完善更新记录（README 版本表 + GitHub Release v2.1.12）。 |
 | **v2.1.13** | 2026-07-14 | ① Step 4 升为**硬门禁**：简报生成前校验深抓篇数（活动详版≥8、渠道详版≥4），不足即报错不生成；② 固化"详情 URL 必须落盘"（`_urls_YYYYMMDD.txt`），根治 07-14 复发根因（无 URL→无米下锅→两节变标题）；③ 新增 `scripts/fetch_details.js`（Playwright 版详情抓取器，专治 http-only 站 web_fetch 直连失败）；④ 深抓 429 改**指数退避**（1/2/4/8s）+ 续跑先检测落盘跳过重抓，治"太慢"。 |
 | **v2.1.14** | 2026-07-21 | ① 新增「本省/南京强制深抓」规则（search-strategy.md Step 0.5b 备注 + Step 4 抓取规则段）：本省/南京条目不论在哪个栏目（地市动态/公益活动/营销活动）、列表页是否带详情页 URL，均**强制进入 Step 4 深抓队列**，杜绝"有详情页的本省条目降级简讯"；采集须三栏目并集兜底防漏栏（07-21 连云港东海因仅在"公益活动"栏目、采集只抓"地市动态"而漏抓降级简讯，为反面案例）；南京当天为空须先核查确为"真无发布"而非抓取失败。② 同步更新 MEMORY.md 本省/南京约定（缺口→已落地）。 |
+| **v2.1.15** | 2026-07-23 | ① **A改造**：自动化调度时间由12:00延后至13:00（`rrule BYHOUR=13`），给省级网站早间发布1小时缓冲，降低窗口边界遗漏概率；② **B改造**：新增增量落盘纪律——每批采集结果即时 append `_collect_YYYYMMDD.jsonl` + `_state_YYYYMMDD.json` 记录批次进度+累计条数+失败列表，解决会话截断导致续跑全量重抓的根因问题（07-23 复盘修复）；③ 关键约束新增第7条「增量落盘纪律与续跑抗中断」。 |
 
 > ⚠️ 历史更正：v2.1.9/v2.1.10 曾将 200002 判为 IMA 限流，已于 2026-07-08 推翻——真实根因为 ① import_doc 误塞目标 ID ② add_knowledge 误用 MCP 通道 KB ID ③ loadCredentials 误用 process.env 注入的错误 clientId。三项修复后单次成功（~1.4s）。
 
