@@ -23,6 +23,45 @@ function classify(title){
   return 'other';
 }
 
+// 正文垃圾判定（与 _gen.js 保持一致）：导航/CSS/中文占比过低
+function isGarbage(s) {
+  if (!s || s.length <= 20) return true;
+  if (/:hover/.test(s)) return true;
+  if (/网站首页|客服热线|您所在的位置|首页\s*>>/.test(s)) return true;
+  if (/\{\s*[^}]*(?:width|height|background|margin|padding|border|display|color)\b/.test(s)) return true;
+  const cn = (s.match(/[一-鿿]/g) || []).length;
+  return cn / s.length < 0.15;
+}
+
+// 原生 fetch 兜底：Playwright 取到 CSS/导航垃圾时，改用 fetch + 编码探测 + 去样式后取正文容器
+async function nativeFallback(href) {
+  try {
+    const r = await fetch(href, { headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow' });
+    const buf = Buffer.from(await r.arrayBuffer());
+    const ct = r.headers.get('content-type') || '';
+    let html = buf.toString('utf8');
+    // 编码探测：meta/Content-Type 声明 GBK/GB2312 才用 GBK 解；UTF-8 解码若含大量替换符也回退 GBK
+    const meta = html.match(/<meta[^>]+charset=["']?\s*([\w\-]+)/i);
+    const cs = (meta && meta[1] || (ct.match(/charset=([\w\-]+)/i) || [])[1] || 'utf-8').toLowerCase();
+    if (cs.includes('gbk') || cs.includes('gb2312')) {
+      try { html = new TextDecoder('gbk').decode(buf); } catch (e) {}
+    } else if ((html.match(/�/g) || []).length > 5) {
+      try { html = new TextDecoder('gbk').decode(buf); } catch (e) {}
+    }
+    html = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
+               .replace(/<(nav|header|footer|aside)[\s\S]*?<\/(nav|header|footer|aside)>/gi, '');
+    const divs = [...html.matchAll(/<div[^>]*class=["'][^"']*(?:content|article|news|detail|text|main|body)[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi)];
+    let best = '', bestCn = 0;
+    for (const m of divs) {
+      const txt = m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const cn = (txt.match(/[一-鿿]/g) || []).length;
+      if (cn > bestCn) { bestCn = cn; best = txt; }
+    }
+    if (!best) best = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return best.slice(0, 2000);
+  } catch (e) { return ''; }
+}
+
 (async()=>{
   const lines = fs.readFileSync(COLLECT,'utf8').trim().split('\n').filter(Boolean);
   const items = lines.map(l=>JSON.parse(l));
@@ -58,6 +97,11 @@ function classify(title){
         const root = document.querySelector('.article, .content, .detail, .TRS_Editor, #content, .newscon, .art_content, .main') || document.body;
         return (root.textContent||'').replace(/\s+/g,' ').replace(/\s{2,}/g,' ').trim().slice(0,2000);
       });
+      // 若抓到的是导航/CSS垃圾（站点结构不在选择器列表时 body 兜底会中招），改用原生 fetch 兜底重抓真正文
+      if (isGarbage(content)) {
+        const fb = await nativeFallback(t.href);
+        if (fb && !isGarbage(fb)) { content = fb; console.error(`  [兜底] ${t.province} ${(t.title||'').slice(0,20)} 原生fetch重抓成功 ${fb.length}字`); }
+      }
     }catch(e){ content='[抓取失败:'+e.message+']'; }
     details.push({ key:t.key, province:t.province, type:t.type, cls:t.cls, title:t.title, date:t.date, href:t.href, content });
     console.error(`[深抓] ${t.cls} ${t.province} ${t.title.slice(0,24)} -> ${content.length}字`);
