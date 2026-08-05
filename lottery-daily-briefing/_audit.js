@@ -16,7 +16,10 @@ let section = '', cur = null, items = [];
 const flush = () => { if (cur) items.push(cur); cur = null; };
 for (const ln of lines) {
   if (ln.startsWith('## ')) { flush(); section = ln.slice(3).trim(); continue; }
-  // 条目头：① 子字段格式 ### / - ** ；② 散文体 N. **标题**（2026-08-05 起统一散文体，恢复真实审计）
+  // 条目头：① 新闻体 ### 三级标题（规范，每条新闻=一个 ### 标题+整段叙述）；
+  //        ② 旧散文体 N. **标题**（兼容）；
+  //        ③ - ** （仅当作为整条 bullet 如 07-30 中奖时；若为子字段拆 bullet 则空正文被下面检查捕获）
+  // 注意：规范严禁把字段拆成 "- **子字段**" 独立列表项——审计会把每个子字段当独立条目、判空正文误报。
   const isItemHead = ln.startsWith('### ') || ln.startsWith('- **') ||
     /^\d+\.\s+\*\*.+\*\*/.test(ln.trim());
   if (isItemHead) { flush(); cur = { section, head: ln.trim(), body: '' }; continue; }
