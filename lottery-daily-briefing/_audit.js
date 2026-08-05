@@ -29,8 +29,15 @@ flush();
 const issues = [];
 for (const it of items) {
   const body = it.body || '';
-  const m = body.match(/(?:发布日期|发布时间|时间)[：:]\s*(\d{4}-\d{2}-\d{2})/);
-  const real = m ? m[1] : null;
+  // 窗口外判定：优先取段尾"来源"行的发布日期（新闻体每条均有，且为真实发布日，
+  // 不误伤【持续】活动的起始日）；兼容旧 ISO 格式（发布时间：YYYY-MM-DD）。
+  let real = null;
+  const sm = body.match(/(\d{4})年(\d{2})月(\d{2})日(?=发布)/);
+  if (sm) real = `${sm[1]}-${sm[2]}-${sm[3]}`;
+  if (!real) {
+    const m = body.match(/(?:发布日期|发布时间|时间)[：:]\s*(\d{4}-\d{2}-\d{2})/);
+    real = m ? m[1] : null;
+  }
   const flags = [];
   if (real && (real < WIN_START || real > WIN_END)) flags.push('窗口外(' + real + ')');
   if (/2009|2008/.test(it.head) && !/2026/.test(it.head)) flags.push('旧年份标题');
