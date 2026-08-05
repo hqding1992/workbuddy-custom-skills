@@ -58,11 +58,14 @@ function transformItem(itemLines, isKaijiang) {
   }
 
   // 开奖：子字段拼成一条数据行 + 保留奖项表
+  // 任何字段（含 销售额/中奖注数 等未预知字段）一律按文档顺序保留，不丢弃
   if (isKaijiang) {
     const fields = [];
-    ['开奖日期', '开奖号码', '奖池金额', '兑奖截止日期', '来源'].forEach(k => {
-      if (map[k] && map[k].length) fields.push(`${k} ${map[k].join('；')}`);
+    Object.keys(map).forEach(k => {
+      if (k === '来源') return;
+      fields.push(`${k} ${map[k].join('；')}`);
     });
+    if (map['来源'] && map['来源'].length) fields.push('来源 ' + map['来源'].join('；'));
     const res = [`${num ? num + '. ' : ''}**${title}**`];
     if (fields.length) res.push('   ' + fields.join('；') + '。');
     raw.forEach(r => res.push(r));
@@ -70,24 +73,25 @@ function transformItem(itemLines, isKaijiang) {
   }
 
   // 政策/活动/渠道/中奖：叙述 + 轻量元信息行 + 来源行
-  const narrParts = [];
-  ['案例说明', '创新点', '效果', '活动内容', '主要内容', '中奖详情', '公益属性', '影响分析'].forEach(k => {
-    if (map[k] && map[k].length) narrParts.push(map[k].join('；'));
-  });
-  let narrative = narrParts.join('。');
+  // 关键：narrParts(叙述性字段) + meta(时间/地点/主办/参与) 之外的"未识别字段"
+  // （如中奖游戏/开奖日期/中奖期号/中奖金额/中奖地区/单注奖金）一律保留，杜绝数据丢失。
+  const NARR_KEYS = ['案例说明', '创新点', '效果', '活动内容', '主要内容', '中奖详情', '公益属性', '影响分析'];
+  const META_KEYS = ['发布时间', '活动时间', '活动地点', '地点/范围', '主办单位', '参与方式'];
+  const META_LABEL = { '发布时间': '发布时间', '活动时间': '时间', '活动地点': '地点', '地点/范围': '地点', '主办单位': '主办', '参与方式': '参与' };
+  const narrParts = [], extra = [], metaParts = [];
+  for (const k of Object.keys(map)) {
+    const vals = map[k].join('；');
+    if (k === '来源') continue;
+    if (META_KEYS.includes(k)) { metaParts.push(META_LABEL[k] + '：' + vals); continue; }
+    if (NARR_KEYS.includes(k)) { narrParts.push(vals); continue; }
+    extra.push(`${k}：${vals}`); // 未识别字段全部保留
+  }
+  let narrative = [...narrParts, ...extra].join('。');
   narrative = narrative.replace(/。；/g, '。').replace(/；。/g, '。').replace(/。。/g, '。').replace(/；；/g, '；');
   if (narrative && !narrative.endsWith('。')) narrative += '。';
 
-  const meta = [];
-  if (map['发布时间']) meta.push('发布时间：' + map['发布时间'].join('；'));
-  if (map['活动时间']) meta.push('时间：' + map['活动时间'].join('；'));
-  if (map['活动地点'] || map['地点/范围']) meta.push('地点：' + (map['活动地点'] || map['地点/范围']).join('；'));
-  if (map['主办单位']) meta.push('主办：' + map['主办单位'].join('；'));
-  if (map['参与方式']) meta.push('参与：' + map['参与方式'].join('；'));
-  const metaLine = meta.join('｜');
-
-  let srcLine = '';
-  if (map['来源']) srcLine = '来源：' + map['来源'].join('；');
+  const metaLine = metaParts.join('｜');
+  let srcLine = map['来源'] ? '来源：' + map['来源'].join('；') : '';
 
   const res = [`${num ? num + '. ' : ''}**${title}**`];
   if (narrative) res.push('   ' + narrative);
