@@ -16,7 +16,10 @@ let section = '', cur = null, items = [];
 const flush = () => { if (cur) items.push(cur); cur = null; };
 for (const ln of lines) {
   if (ln.startsWith('## ')) { flush(); section = ln.slice(3).trim(); continue; }
-  if (ln.startsWith('### ') || ln.startsWith('- **')) { flush(); cur = { section, head: ln.trim(), body: '' }; continue; }
+  // 条目头：① 子字段格式 ### / - ** ；② 散文体 N. **标题**（2026-08-05 起统一散文体，恢复真实审计）
+  const isItemHead = ln.startsWith('### ') || ln.startsWith('- **') ||
+    /^\d+\.\s+\*\*.+\*\*/.test(ln.trim());
+  if (isItemHead) { flush(); cur = { section, head: ln.trim(), body: '' }; continue; }
   if (cur) cur.body += ln + ' ';
 }
 flush();
@@ -39,7 +42,7 @@ for (const it of items) {
   if (flags.length) issues.push('[' + it.section + '] ' + it.head.slice(0, 38) + ' => ' + flags.join(','));
 }
 // 跨节重复（标题去标点后指纹）
-const fp = s => s.replace(/[^\u4e00-\u9fa5]/g, '').slice(0, 18);
+const fp = s => s.replace(/[^\u4e00-\u9fa5\d]/g, '').slice(0, 18); // 保留数字，避免排列3/排列5等同中文前缀误判重复
 const seen = {}, dups = [];
 for (const it of items) { const k = fp(it.head); if (seen[k]) dups.push('[' + seen[k] + ']≈[' + it.section + ']' + it.head.slice(0, 24)); else seen[k] = it.section; }
 fs.writeFileSync('_audit.txt',
