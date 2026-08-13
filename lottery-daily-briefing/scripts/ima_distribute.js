@@ -30,7 +30,14 @@ const MAX_RETRY = 3;
 // 「彩票新闻简报知识库」的 OpenAPI 正确 ID（来自 get_addable_knowledge_base_list，name="彩票新闻简报知识库"）
 // ⚠️ 不是 MCP 通道看到的 ID（那是另一套身份体系下的 ID，传它会 220004 invalid）
 const DEFAULT_KB_ID = 'Vt3DVn6DvWGQLvalgCWBAeJlP_P4HkmvF5MhsQJWhL4=';
-const STATE_DIR = __dirname;
+// 2026-08-13 修复（0812 复盘根因）——
+// 幂等锁【必须】写到「固定的项目 scripts 目录」，绝对不能用 __dirname。
+// 旧逻辑 __dirname 随"被执行的是哪个 ima_distribute.js 副本"漂移：
+//   主任务跑 skill 副本 → 锁落 skill 目录，兜底查项目目录 → 漏看 → 误判未分发 → 重复分发（0812 事故）。
+// 两处副本（项目 scripts/ 与 skill scripts/）统一写此固定路径，读写一致，彻底根治。
+const STATE_DIR = 'E:\\.workbuddy\\每日彩票新闻\\scripts';
+// 防御：确保锁目录存在
+try { fs.mkdirSync(STATE_DIR, { recursive: true }); } catch {}
 
 // 幂等：按日期记录已分发状态，防止同一天重复产生多份简报
 function stateFileFor(today) {
