@@ -29,7 +29,10 @@ const SECRETS_ENV = path.join(os.homedir(), '.workbuddy/.secrets/ima.env');
 const MAX_RETRY = 3;
 // 「彩票新闻简报知识库」的 OpenAPI 正确 ID（来自 get_addable_knowledge_base_list，name="彩票新闻简报知识库"）
 // ⚠️ 不是 MCP 通道看到的 ID（那是另一套身份体系下的 ID，传它会 220004 invalid）
-const DEFAULT_KB_ID = 'Vt3DVn6DvWGQLvalgCWBAeJlP_P4HkmvF5MhsQJWhL4=';
+// ⚠️ 2026-10-22：IMA 知识库 ID 体系变更——旧 base64 风格 ID（Vt3DVn6DvWGQLvalgCWBAeJlP_P4HkmvF5MhsQJWhL4=）
+//    已整体失效，add_knowledge 一律返回 220004 invalid knowledge_base_id；新 ID 为 ima_kb_ 前缀短格式。
+//    若再遇 220004，先跑 get_addable_knowledge_base_list 按 name="彩票新闻简报知识库" 重新取号，勿盲目重试。
+const DEFAULT_KB_ID = 'ima_kb_Iu1rQEqO';
 // 2026-08-13 修复（0812 复盘根因）——
 // 幂等锁【必须】写到「固定的项目 scripts 目录」，绝对不能用 __dirname。
 // 旧逻辑 __dirname 随"被执行的是哪个 ima_distribute.js 副本"漂移：
